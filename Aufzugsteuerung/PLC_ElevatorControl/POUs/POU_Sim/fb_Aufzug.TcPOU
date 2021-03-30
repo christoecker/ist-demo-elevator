@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="fb_Aufzug" Id="{f4ada7b6-d56d-4a7d-be2e-46e441fb79f0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK fb_Aufzug
+VAR_INPUT
+	bMotorEnable 	: BOOL;		(* Deactivate/Activate Motor *)
+	nMotorVel 		: INT;
+	bDoorEnable 	: BOOL;
+	bDoorOpen		: BOOL;
+	bDoorClose		: BOOL;
+END_VAR
+VAR_OUTPUT
+	bLiftTop		: BOOL;
+	bLiftBottom		: BOOL;
+	nLiftPos		: INT(0..1200);
+	bDoorIsOpen		: BOOL;
+	bDoorIsClosed	: BOOL;
+	bLevel0			: BOOL;
+	bLevel1			: BOOL;
+	bLevel2			: BOOL;
+	bLevel3			: BOOL;
+END_VAR
+VAR
+	nMotorSpeed		: INT;
+	nDoorPos		: INT(0..100);
+	bInit			: BOOL := FALSE;
+	tDoorsClosing	: TIME := T#180MS;
+	tDoorsOpening	: TIME := T#220MS;
+	tS2T			: TIME;
+	tDoorDelay		: TON;
+	tMovingDelay	: TON;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(* Initial sensor outputs *)
+IF NOT bInit THEN
+	bInit := TRUE;
+	bLevel0 := TRUE;
+	bLevel1 := FALSE;
+	bLevel2 := FALSE;
+	bLevel3 := FALSE;
+	nLiftPos := 0;
+	nDoorPos := 100;		(* 100 means door open, 0 is closed *)
+	bLiftBottom := TRUE;
+	bLiftTop := FALSE;
+	bDoorIsOpen := TRUE;
+	bDoorIsClosed := FALSE;
+END_IF
+
+(* Limiting Motor speed *)
+IF nMotorVel > 10000 THEN
+	nMotorVel := 10000;
+ELSIF nMotorVel < -10000 THEN
+	nMotorVel := -10000;
+END_IF
+nMotorSpeed := ABS(nMotorVel);
+
+(* Lift behavior *)
+IF nLiftPos = 1200 THEN
+	bLiftTop := TRUE;
+	bLevel3 := TRUE;
+ELSIF nLiftPos = 0 THEN
+	bLiftBottom := TRUE;
+	bLevel0 := TRUE;
+ELSE
+	bLiftTop := FALSE;
+	bLiftBottom := FALSE;
+END_IF
+
+IF NOT bMotorEnable THEN
+	(* Remain position and do noting *)
+ELSE
+	(* Calculate delay, after which the pos should be increased by 10.
+	 Note that delay should be lager the lower nMotorSpeed is.
+	 The calculations here yield a total duration from 0 to maxPos of 
+	approx. 4.8 seconds with 10000 nMotorVel *)
+	IF nMotorSpeed <> 0 THEN
+		tS2T := INT_TO_TIME((12000-nMotorSpeed)/50);
+		tMovingDelay(IN:=TRUE, PT:=tS2T);
+		IF tMovingDelay.Q THEN
+			tMovingDelay(IN:=FALSE);
+			IF nMotorVel > 0 AND nLiftPos < 1200 THEN
+				nLiftPos := nLiftPos + 10; 
+			ELSIF nMotorVel < 0 AND nLiftPos > 0 THEN
+				nLiftPos := nLiftPos - 10;
+			END_IF
+			
+			IF nLiftPos = 0 OR nLiftPos = 60 THEN
+				bLevel0 := TRUE;
+			ELSIF nLiftPos = 340 OR nLiftPos = 400 OR nLiftPos = 460 THEN
+				bLevel1 := TRUE;
+			ELSIF nLiftPos = 740 OR nLiftPos = 800 OR nLiftPos = 860 THEN
+				bLevel2 := TRUE;
+			ELSIF nLiftPos = 1140 OR nLiftPos = 1200 THEN
+				bLevel3 := TRUE;
+			ELSE
+				bLevel0 := FALSE;
+				bLevel1 := FALSE;
+				bLevel2 := FALSE;
+				bLevel3 := FALSE;
+			END_IF
+		END_IF
+	END_IF
+END_IF
+
+
+(* Door dynamics *)
+IF bDoorEnable THEN
+	IF bDoorOpen AND NOT bDoorClose AND nDoorPos < 100 THEN
+		tDoorDelay(IN:=TRUE, PT:=tDoorsOpening);
+		IF tDoorDelay.Q THEN
+			tDoorDelay(IN:=FALSE);
+			nDoorPos := nDoorPos + 10;
+		END_IF
+	ELSIF bDoorClose AND NOT bDoorOpen AND nDoorPos > 0 THEN
+		tDoorDelay(IN:=TRUE, PT:=tDoorsClosing);
+		IF tDoorDelay.Q THEN
+			tDoorDelay(IN:=FALSE);
+			nDoorPos := nDoorPos - 10;
+		END_IF
+	END_IF
+END_IF
+
+(* set door state *)
+IF nDoorPos = 100 THEN
+	bDoorIsOpen := TRUE;
+ELSIF nDoorPos = 0 THEN
+	bDoorIsClosed := TRUE;
+ELSE
+	bDoorIsOpen := FALSE;
+	bDoorIsClosed := FALSE;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="fb_Aufzug">
+      <LineId Id="3" Count="96" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

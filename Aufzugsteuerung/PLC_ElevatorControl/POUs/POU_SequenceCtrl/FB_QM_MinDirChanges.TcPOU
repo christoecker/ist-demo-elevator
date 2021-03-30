@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_QM_MinDirChanges" Id="{2a7de36e-768f-4ee0-9272-f4d3c2690c2b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_QM_MinDirChanges IMPLEMENTS IF_queueManager
+VAR_INPUT
+	bButtons 	  : ARRAY [1..NUMLEVELS] OF BOOL;						(* user input *)
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	tPushDetects  : ARRAY [1..NUMLEVELS] OF FB_BinaryInp;				(* FBs to buffer user inputs until being processed *)
+	queueManip	  : FB_ArrManip;										(* FB for array manipulation, like sorting etc. *)
+	k			  : INT;												(* loop variable *)
+	eDirection    : LiftMovingDirection := LiftMovingDirection.up;		(* local variable for moving direction *)
+	
+	nCurLevel	  : INT(1..NUMLEVELS);									(* current lift position *)
+	nQueue		  : ARRAY [1..NUMLEVELS] OF INT;						(* queue, saving next targets in current moving direction *)
+	bLevelInQueue : ARRAY [1..NUMLEVELS] OF BOOL;						(* buffer of all active calls , i.e. levels in nQueue OR active tPushDetects *)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FOR k:=1 TO NUMLEVELS DO
+	tPushDetects[k](bPush:=bButtons[k], bReset:=FALSE);
+	bLevelInQueue[k] := tPushDetects[k].bOutActive OR queueManip.isElement(arr:=nQueue, entry:=k);
+END_FOR
+
+FOR k:=1 TO NUMLEVELS DO
+	IF tPushDetects[k].bOutActive THEN
+		IF queueManip.isEmpty(arr:=nQueue, emptyElement:=0) THEN
+			// Queue is empty. Just inset new element and sort desc (-> new Element is at front)
+			queueManip.insert(arr:=nQueue, newElement:=k, freeElement:=0);
+			queueManip.quicksort_desc(arr:=nQueue, lo:=1, hi:=NUMLEVELS);
+			// ... and set Direction to UP if current lift position is below the calling level
+			IF nCurLevel < k THEN
+				eDirection := LiftMovingDirection.up;
+			END_IF
+			// ... and set Direction to DOWN if current lift position is above the calling level
+			IF nCurLevel > k THEN
+				eDirection := LiftMovingDirection.down;
+			END_IF
+			// otherwise leave direction as it is!
+			
+			// Then acknowledge
+			tPushDetects[k](bReset:=TRUE);
+			CONTINUE;
+		END_IF	
+	
+		(*
+			if new call is already included in queue, then acknowldge
+			and continue with next loop iteration 
+		*)
+		IF queueManip.isElement(arr:=nQueue, entry:=k) THEN
+			tPushDetects[k](bReset:=TRUE);
+			CONTINUE;
+		END_IF
+		
+		(* 
+			lift is moving up and new call is from above the lift position,
+			so the new call in inserted into queue and queue is sorted afterwards.
+		*)
+		IF nCurLevel < k AND eDirection = LiftMovingDirection.up THEN
+			queueManip.insert(arr:=nQueue, newElement:=k, freeElement:=0);
+			queueManip.quicksort_asc(arr:=nQueue, lo:=1, hi:=NUMLEVELS);
+			WHILE nQueue[1] = 0 DO
+				queueManip.pop_front(arr:=nQueue, fill:=0);
+			END_WHILE
+			// ack call
+			tPushDetects[k](bReset:=TRUE);
+		END_IF
+		
+		(* 
+			lift is moving down and new call is from below the lift position,
+			so the new call in inserted into queue and queue is sorted afterwards.
+		*)
+		IF nCurLevel > k AND eDirection = LiftMovingDirection.down THEN
+			queueManip.insert(arr:=nQueue, newElement:=k, freeElement:=0);
+			queueManip.quicksort_desc(arr:=nQueue, lo:=1, hi:=NUMLEVELS);
+			// ack call
+			tPushDetects[k](bReset:=TRUE);
+		END_IF
+	END_IF
+END_FOR]]></ST>
+    </Implementation>
+    <Property Name="currentLevel" Id="{f0e23ccc-d1cd-4859-ba89-89f97026054e}">
+      <Declaration><![CDATA[PROPERTY currentLevel : INT (1..NUMLEVELS)]]></Declaration>
+      <Set Name="Set" Id="{bfa1cb56-20d0-4330-8d8a-80bb22abfcb5}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[nCurLevel := currentLevel;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Method Name="doneAck" Id="{21a29943-5900-4538-ac43-f748175fb01f}">
+      <Declaration><![CDATA[METHOD doneAck
+VAR_INPUT
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* 
+By calling this method, the first entry in nQueue is deleted and all remaining entries are shiftetd one position forward. 
+Method shall be called, after the latest moving job has been executed. 
+*)
+queueManip.pop_front(arr:=nQueue, fill:=0);]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="queue" Id="{1215a89b-1f63-430a-b88d-e06ced1b7c72}">
+      <Declaration><![CDATA[PROPERTY queue : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT]]></Declaration>
+      <Get Name="Get" Id="{bf3bf46a-d03c-44af-8541-3868ad94a145}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[queue REF= nQueue;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="reset" Id="{c38562d4-0543-4007-9b4e-af4bc26bb9c2}">
+      <Declaration><![CDATA[METHOD reset
+VAR_INPUT
+END_VAR
+VAR
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* resets all calls *)
+FOR i:=1 TO NUMLEVELS DO
+	nQueue[i] := 0;
+	tPushDetects[i](bReset:=TRUE);
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_QM_MinDirChanges">
+      <LineId Id="145" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="146" Count="0" />
+      <LineId Id="150" Count="0" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="155" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="201" Count="0" />
+      <LineId Id="204" Count="0" />
+      <LineId Id="206" Count="0" />
+      <LineId Id="205" Count="0" />
+      <LineId Id="196" Count="2" />
+      <LineId Id="208" Count="2" />
+      <LineId Id="207" Count="0" />
+      <LineId Id="211" Count="0" />
+      <LineId Id="213" Count="2" />
+      <LineId Id="212" Count="0" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="194" Count="0" />
+      <LineId Id="187" Count="0" />
+      <LineId Id="189" Count="1" />
+      <LineId Id="188" Count="0" />
+      <LineId Id="183" Count="1" />
+      <LineId Id="186" Count="0" />
+      <LineId Id="185" Count="0" />
+      <LineId Id="191" Count="0" />
+      <LineId Id="171" Count="0" />
+      <LineId Id="173" Count="1" />
+      <LineId Id="176" Count="0" />
+      <LineId Id="159" Count="5" />
+      <LineId Id="177" Count="0" />
+      <LineId Id="165" Count="1" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="179" Count="2" />
+      <LineId Id="178" Count="0" />
+      <LineId Id="167" Count="2" />
+      <LineId Id="182" Count="0" />
+      <LineId Id="170" Count="0" />
+      <LineId Id="157" Count="1" />
+      <LineId Id="156" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_MinDirChanges.currentLevel.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_MinDirChanges.doneAck">
+      <LineId Id="11" Count="3" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_MinDirChanges.queue.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_MinDirChanges.reset">
+      <LineId Id="18" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="10" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

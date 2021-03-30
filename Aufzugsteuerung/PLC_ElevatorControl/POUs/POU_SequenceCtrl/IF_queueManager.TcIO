@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <Itf Name="IF_queueManager" Id="{0614bf0d-28f4-4560-b0fe-dc1c17c4dea8}">
+    <Declaration><![CDATA[INTERFACE IF_queueManager]]></Declaration>
+    <Property Name="currentLevel" Id="{6ba6c7c2-b083-4143-91e8-0ad03a37d3e2}">
+      <Declaration><![CDATA[PROPERTY currentLevel : INT(1..NUMLEVELS)]]></Declaration>
+      <Set Name="Set" Id="{1769bcef-77f7-4d76-b4eb-8f91f920bd1d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+    <Method Name="doneAck" Id="{5a2bb297-cc5a-4c29-9a61-2f9dbe0a0fab}">
+      <Declaration><![CDATA[METHOD doneAck
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="queue" Id="{99997325-aa61-4eb8-b341-38be5307f03c}">
+      <Declaration><![CDATA[PROPERTY queue : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT]]></Declaration>
+      <Get Name="Get" Id="{9748c0d4-e1b0-48a7-932f-57b67b0e0795}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="reset" Id="{f08d815b-2869-4435-b30e-50a5683fb81f}">
+      <Declaration><![CDATA[METHOD reset
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

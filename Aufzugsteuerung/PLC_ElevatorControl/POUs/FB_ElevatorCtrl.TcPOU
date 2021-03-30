@@ -1,0 +1,337 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_ElevatorCtrl" Id="{1a053cc2-19d9-4586-8d88-cde19fc152b3}" SpecialFunc="None">
+    <Declaration><![CDATA[(* 
+	FB_ElevatorCtrl is the main control unit which orchestrates the process steps
+*)
+FUNCTION_BLOCK FB_ElevatorCtrl
+VAR_INPUT
+	// controlling actuators 
+	doorController 		: IF_DriveConstVel;
+	liftController 		: IF_DriveVariableVel;
+	
+	// functionalities
+	queueMngr			: IF_queueManager;				// orchestrates btn calls and manages which level is appraoched next
+	
+	// maintenance
+	bInit_Reinit 		: BOOL;
+	
+	// system outputs (from simulation FB)
+	bProxSensors		: ARRAY [1..NUMLEVELS] OF BOOL;
+	
+END_VAR
+VAR_OUTPUT
+	// for maintenance and VISU
+	operationMode 		: ElevatorOpMode;
+	bError				: BOOL;
+END_VAR
+VAR
+	levelController 	: FB_move2Level;				// moves lift to next position
+	arrUtil				: FB_ArrManip;					// array manipulation (used in ln. 3 only)
+	nState 				: INT;							// state no. of state diagram
+	
+	// Timer
+	tWait				: TON;							// waiting time, used in calibration mode (init)
+	tDoorOpen			: TON;
+	
+	// trigger detections
+	trInitDetect 		: R_TRIG;
+	trJobDone			: R_TRIG;
+	trOpenDoor			: R_TRIG;
+	
+	// local bfr variables
+	curLevel 			: INT(1..NUMLEVELS);
+	locBfrQueue			: ARRAY [1..NUMLEVELS] OF INT;
+	bBfrDoorState		: BOOL;
+
+	// next level in prio mode
+	prioNextLevel		: INT(0..NUMLEVELS) := 0;
+	prioArrManip 		: FB_ArrManip;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[trInitDetect(CLK:=bInit_Reinit);									// trigger for calling maintenance state (active in idle mode only)
+trOpenDoor(CLK:=bOpenDoor);											// trigger for push btn: OPEN DOOR
+IF arrUtil.index(arr:=bProxSensors) <> 0 THEN
+	curLevel := arrUtil.index(arr:=bProxSensors);					// detetct current lift position -> translate binary signal of prox sensor to int
+END_IF
+queueMngr.currentLevel := curLevel;									// passing current level to Queue Manager
+
+
+CASE nState OF
+	0:		// idle
+		operationMode := ElevatorOpMode.waiting_for_calibration;
+		IF trInitDetect.Q THEN
+			operationMode := ElevatorOpMode.re_init;
+			nState := 101;											// maintenance mode
+		END_IF
+		
+	1:		// nominal operation mode: waiting
+		operationMode := ElevatorOpMode.waiting;
+		locBfrQueue := queueMngr.queue;								// update queue		
+		IF bSetPrio THEN
+			nState := 21;											// switch to prio mode
+		ELSE
+			IF locBfrQueue[1] <> 0 THEN								// queue is not empty -> start moving
+				levelController(bStart:=FALSE);
+				nState := 2;
+			END_IF
+			IF trOpenDoor.Q THEN
+				nState := 13;										// push btn DOOR OPEN possible only when lift is in waiting mode
+			END_IF
+		END_IF				
+		
+		IF trInitDetect.Q THEN
+			operationMode := ElevatorOpMode.re_init;
+			nState := 101;											// maintenance mode
+		END_IF
+		
+		
+	2:		// nominal operation mode: move to next level
+		operationMode := ElevatorOpMode.moving;
+		locBfrQueue := queueMngr.queue;								// update queue: New calls, which pop up while lift is already moving, are considered
+		levelController(
+			winchCtrl:=liftController,
+			bProxSensor:=bProxSensors,
+			bStart:=TRUE,
+			nCurrentLevel:=curLevel,
+			nNextLevel:=locBfrQueue[1]
+			);														// calling FB starts moving until job is done
+		trJobDone(CLK:=levelController.bJobDone);					// trigger for detection "job done"-signal
+		
+		IF trJobDone.Q THEN
+			levelController(bStart:=FALSE);							// set bStart to FALSE is necessary to start new job
+			doorController.doorEnable();							
+			nState := 3;
+		END_IF
+		
+		(*
+			POSSIBLE IMPROVEMENT:
+			Steps 3 - 5 (as well as 13 - 15) are used for controlling to lift doors. It would be better to
+			outsource this process control steps to a separate FB, similarly to FB_move2Level. That would 
+			open up the possibilty for using different "door moving logics", like a new door with a light barrier.
+		*)
+		
+	3:		// nominal operation mode: open door at target level
+		operationMode := ElevatorOpMode.doors_opening;
+		bBfrDoorState := doorController.doorOpen();
+		IF bBfrDoorState THEN
+			nState:=4;
+		END_IF
+			
+	4:		// nominal operation mode: keep door open for 3sec
+		operationMode := ElevatorOpMode.waiting_doors_open;
+		tDoorOpen(IN:=TRUE, PT:=T#3S);								// duration fordoor being open is fixed (3sec)
+		IF tDoorOpen.Q THEN
+			tDoorOpen(IN:=FALSE);
+			nState := 5;
+		END_IF
+		
+	5:		// nominal operation mode: close doors
+		operationMode := ElevatorOpMode.doors_closing;
+		bBfrDoorState := doorController.doorClose();
+		IF bBfrDoorState THEN
+			doorController.doorDisable();
+			IF bSetPrio THEN
+				nState := 21;
+				prioNextLevel := 0;
+			ELSE
+				queueMngr.doneAck();
+				nState := 1;
+			END_IF
+		END_IF	
+	
+	13:		// nominal operation mode: open door at target level
+		operationMode := ElevatorOpMode.doors_opening;
+		doorController.doorEnable();
+		bBfrDoorState := doorController.doorOpen();
+		IF bBfrDoorState THEN
+			nState:=14;
+		END_IF
+			
+	14:		// nominal operation mode: keep door open for 3sec
+		operationMode := ElevatorOpMode.waiting_doors_open;
+		tDoorOpen(IN:=TRUE, PT:=T#3S);
+		IF tDoorOpen.Q THEN
+			tDoorOpen(IN:=FALSE);
+			nState := 15;
+		END_IF
+		
+	15:		// nominal operation mode: close doors
+		operationMode := ElevatorOpMode.doors_closing;
+		bBfrDoorState := doorController.doorClose();
+		IF bBfrDoorState THEN
+			doorController.doorDisable();
+			nState := 1;
+		END_IF	
+		
+	21:		// PRIO mode: waiting for call
+		operationMode := ElevatorOpMode.prio_waiting;
+		prioNextLevel := 0;
+		IF NOT bSetPrio THEN
+			nState := 1;											// switch to normal mode
+		ELSE
+			prioNextLevel := prioArrManip.index(arr:=bCallLift_Panel);
+			IF prioNextLevel <> 0 THEN
+				nState := 22;
+			END_IF
+		END_IF
+
+	22:		// PRIO mode: close doors
+		operationMode := ElevatorOpMode.prio_doors_closing;
+		bBfrDoorState := doorController.doorClose();
+		IF bBfrDoorState THEN
+			doorController.doorDisable();
+			nState := 23;
+		END_IF	
+		
+	23:		// PRIO mode: moving
+		operationMode := ElevatorOpMode.prio_moving;
+		levelController(
+			winchCtrl:=liftController,
+			bProxSensor:=bProxSensors,
+			bStart:=TRUE,
+			nCurrentLevel:=curLevel,
+			nNextLevel:=prioNextLevel
+			);														// calling FB starts moving until job is done
+		trJobDone(CLK:=levelController.bJobDone);					// trigger for detection "job done"-signal
+		
+		IF trJobDone.Q THEN
+			levelController(bStart:=FALSE);							// set bStart to FALSE is necessary to start new job
+			doorController.doorEnable();							
+			nState := 3;
+		END_IF
+		
+	101:	// re_init: stop elevator and clear queue callStates
+		queueMngr.reset();
+		liftController.stop();
+		doorController.doorEnable();
+		IF doorController.doorClose() THEN
+			nState := 102;
+		END_IF
+		
+	102:	// stop for a few seconds, then move down
+		tWait(IN:=TRUE, PT:=T#2S);
+		IF tWait.Q THEN
+			nState := 103;
+		END_IF
+
+	103:	// re_init: Move elevator to bottom
+		liftController.moveVarSpeed(nSetVelocity:=5000, eDirection:=LiftMovingDirection.down);		(* Move down fast *);
+		IF liftController.bBOTTOM THEN
+			// controller stops lift (cf. method moveVarSpeed)
+			// curLevel should now be 1
+			IF curLevel <> 1 THEN
+				bError := TRUE;
+			ELSE
+				bError := FALSE;
+			END_IF
+			nState := 1;			// go to normal operation mode
+		END_IF
+		
+		
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FB_ElevatorCtrl">
+      <LineId Id="22" Count="0" />
+      <LineId Id="476" Count="0" />
+      <LineId Id="138" Count="0" />
+      <LineId Id="304" Count="1" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="356" Count="0" />
+      <LineId Id="76" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="77" Count="2" />
+      <LineId Id="222" Count="0" />
+      <LineId Id="535" Count="0" />
+      <LineId Id="537" Count="1" />
+      <LineId Id="540" Count="5" />
+      <LineId Id="539" Count="0" />
+      <LineId Id="536" Count="0" />
+      <LineId Id="359" Count="0" />
+      <LineId Id="532" Count="2" />
+      <LineId Id="531" Count="0" />
+      <LineId Id="353" Count="0" />
+      <LineId Id="223" Count="2" />
+      <LineId Id="235" Count="0" />
+      <LineId Id="181" Count="0" />
+      <LineId Id="227" Count="5" />
+      <LineId Id="311" Count="0" />
+      <LineId Id="233" Count="1" />
+      <LineId Id="238" Count="0" />
+      <LineId Id="244" Count="0" />
+      <LineId Id="236" Count="1" />
+      <LineId Id="477" Count="1" />
+      <LineId Id="480" Count="3" />
+      <LineId Id="479" Count="0" />
+      <LineId Id="241" Count="1" />
+      <LineId Id="306" Count="0" />
+      <LineId Id="243" Count="0" />
+      <LineId Id="247" Count="4" />
+      <LineId Id="307" Count="0" />
+      <LineId Id="252" Count="0" />
+      <LineId Id="254" Count="0" />
+      <LineId Id="309" Count="0" />
+      <LineId Id="255" Count="3" />
+      <LineId Id="308" Count="0" />
+      <LineId Id="259" Count="1" />
+      <LineId Id="262" Count="0" />
+      <LineId Id="607" Count="1" />
+      <LineId Id="610" Count="3" />
+      <LineId Id="609" Count="0" />
+      <LineId Id="226" Count="0" />
+      <LineId Id="398" Count="0" />
+      <LineId Id="400" Count="1" />
+      <LineId Id="422" Count="0" />
+      <LineId Id="402" Count="17" />
+      <LineId Id="421" Count="0" />
+      <LineId Id="399" Count="0" />
+      <LineId Id="546" Count="1" />
+      <LineId Id="551" Count="0" />
+      <LineId Id="555" Count="0" />
+      <LineId Id="553" Count="1" />
+      <LineId Id="556" Count="0" />
+      <LineId Id="562" Count="0" />
+      <LineId Id="614" Count="0" />
+      <LineId Id="563" Count="0" />
+      <LineId Id="615" Count="0" />
+      <LineId Id="552" Count="0" />
+      <LineId Id="566" Count="0" />
+      <LineId Id="564" Count="0" />
+      <LineId Id="568" Count="4" />
+      <LineId Id="567" Count="0" />
+      <LineId Id="573" Count="0" />
+      <LineId Id="575" Count="0" />
+      <LineId Id="590" Count="0" />
+      <LineId Id="576" Count="0" />
+      <LineId Id="578" Count="11" />
+      <LineId Id="574" Count="0" />
+      <LineId Id="34" Count="1" />
+      <LineId Id="120" Count="1" />
+      <LineId Id="131" Count="0" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="132" Count="2" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="136" Count="0" />
+      <LineId Id="124" Count="2" />
+      <LineId Id="119" Count="0" />
+      <LineId Id="118" Count="0" />
+      <LineId Id="36" Count="2" />
+      <LineId Id="56" Count="0" />
+      <LineId Id="141" Count="1" />
+      <LineId Id="144" Count="1" />
+      <LineId Id="143" Count="0" />
+      <LineId Id="73" Count="0" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="24" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

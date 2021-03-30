@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <Itf Name="IF_DriveConstVel" Id="{c1af9fe5-cbed-4383-b7ec-f24650e03401}">
+    <Declaration><![CDATA[INTERFACE IF_DriveConstVel
+]]></Declaration>
+    <Method Name="doorClose" Id="{68a1dc66-3059-4595-a721-b1b96e5e90a0}">
+      <Declaration><![CDATA[METHOD doorClose : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="doorDisable" Id="{4257f0e7-8781-4cc3-88c7-0fd5997836db}">
+      <Declaration><![CDATA[METHOD doorDisable
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="doorEnable" Id="{1569687c-1f1c-4a44-b59c-cca818fd0e4f}">
+      <Declaration><![CDATA[METHOD doorEnable
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="doorOpen" Id="{174570b2-a568-4b01-a3f1-aad28bb46a20}">
+      <Declaration><![CDATA[METHOD doorOpen : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

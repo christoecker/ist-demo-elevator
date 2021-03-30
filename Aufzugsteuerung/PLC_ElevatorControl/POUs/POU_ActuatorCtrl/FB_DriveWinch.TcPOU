@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_DriveWinch" Id="{ea04fc71-84e4-49f0-8d06-b8ced5385672}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_DriveWinch IMPLEMENTS IF_DriveVariableVel
+VAR_INPUT
+	bLimitTop, bLimitBottom : BOOL;						(* limit switches *)
+END_VAR
+VAR_OUTPUT
+	bDriveEnable : BOOL;								(* Lift drive enable *)
+	nDriveVelocity : INT;								(* Lift drive velocity *)
+END_VAR
+VAR
+
+END_VAR
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Property Name="bBOTTOM" Id="{93d4f6ee-9753-44db-8f76-44fd23bf93cd}">
+      <Declaration><![CDATA[PROPERTY bBOTTOM : BOOL]]></Declaration>
+      <Get Name="Get" Id="{abf09bdd-7cdc-4cd5-b9eb-6ccebd8d9180}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[bBOTTOM := bLimitBottom;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="bTOP" Id="{98558438-0e94-43e1-94e4-72dc4d5e85fc}">
+      <Declaration><![CDATA[PROPERTY bTOP : BOOL]]></Declaration>
+      <Get Name="Get" Id="{b99dedea-0e19-48b7-b926-7fbc4ca54f70}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[bTOP := bLimitTop;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="lifEnable" Id="{cf793a26-ba8e-4a8b-a436-4f27f77b34a4}">
+      <Declaration><![CDATA[METHOD lifEnable
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bDriveEnable := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="liftDisable" Id="{0d15b034-5a60-47da-875a-222ee32c7c20}">
+      <Declaration><![CDATA[METHOD liftDisable
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bDriveEnable := FALSE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="moveVarSpeed" Id="{c315ae90-2502-42c2-8273-764b750c3ef6}">
+      <Declaration><![CDATA[METHOD moveVarSpeed
+VAR_INPUT
+	nSetVelocity : INT;						(* velocity setpoint *)
+	eDirection : LiftMovingDirection;		(* moving direction: up or down *)
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bDriveEnable := TRUE;
+
+IF eDirection > 0 THEN
+	eDirection := LiftMovingDirection.up;
+END_IF
+IF eDirection < 0 THEN
+	eDirection := LiftMovingDirection.down; 
+END_IF
+
+nSetVelocity := ABS(nSetVelocity);
+IF nSetVelocity > 10000 THEN
+	nSetVelocity := 10000;
+END_IF
+
+IF bLimitTop AND eDirection = LiftMovingDirection.up THEN
+	stop();
+ELSIF bLimitBottom AND eDirection = LiftMovingDirection.down THEN
+	stop();
+ELSE
+	nDriveVelocity := eDirection*nSetVelocity;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="stop" Id="{6cb4507f-0f7d-4fa1-bd5d-3e548eb4cbae}">
+      <Declaration><![CDATA[METHOD stop
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nDriveVelocity := 0;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_DriveWinch">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveWinch.bBOTTOM.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveWinch.bTOP.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveWinch.lifEnable">
+      <LineId Id="4" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveWinch.liftDisable">
+      <LineId Id="4" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveWinch.moveVarSpeed">
+      <LineId Id="7" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="17" Count="3" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="8" Count="2" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="33" Count="3" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="37" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveWinch.stop">
+      <LineId Id="4" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

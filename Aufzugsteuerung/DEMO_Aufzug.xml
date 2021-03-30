@@ -1,0 +1,442 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.10.30" creationDateTime="2020-02-16T11:04:52.5826931" />
+  <contentHeader name="PLC_Aufzug" modificationDateTime="2020-02-16T11:04:52.5866943">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+    <addData>
+      <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
+        <ProjectInformation />
+      </data>
+    </addData>
+  </contentHeader>
+  <types>
+    <dataTypes />
+    <pous>
+      <pou name="fb_Aufzug" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="bMotorEnable">
+              <type>
+                <BOOL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Deactivate/Activate Motor </xhtml>
+              </documentation>
+            </variable>
+            <variable name="nMotorVel">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="bDoorEnable">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bDoorOpen">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bDoorClose">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="bLiftTop">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLiftBottom">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="nLiftPos">
+              <type>
+                <subrangeSigned>
+                  <range lower="0" upper="1200" />
+                  <baseType>
+                    <INT />
+                  </baseType>
+                </subrangeSigned>
+              </type>
+            </variable>
+            <variable name="bDoorIsOpen">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bDoorIsClosed">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLevel0">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLevel1">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLevel2">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLevel3">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="nMotorSpeed">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="nDoorPos">
+              <type>
+                <subrangeSigned>
+                  <range lower="0" upper="100" />
+                  <baseType>
+                    <INT />
+                  </baseType>
+                </subrangeSigned>
+              </type>
+            </variable>
+            <variable name="bInit">
+              <type>
+                <BOOL />
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE" />
+              </initialValue>
+            </variable>
+            <variable name="tDoorsClosing">
+              <type>
+                <TIME />
+              </type>
+              <initialValue>
+                <simpleValue value="TIME#180ms" />
+              </initialValue>
+            </variable>
+            <variable name="tDoorsOpening">
+              <type>
+                <TIME />
+              </type>
+              <initialValue>
+                <simpleValue value="TIME#220ms" />
+              </initialValue>
+            </variable>
+            <variable name="tS2T">
+              <type>
+                <TIME />
+              </type>
+            </variable>
+            <variable name="tDoorDelay">
+              <type>
+                <derived name="TON" />
+              </type>
+            </variable>
+            <variable name="tMovingDelay">
+              <type>
+                <derived name="TON" />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">(* Initial sensor outputs *)
+IF NOT bInit THEN
+	bInit := TRUE;
+	bLevel0 := TRUE;
+	bLevel1 := FALSE;
+	bLevel2 := FALSE;
+	bLevel3 := FALSE;
+	nLiftPos := 0;
+	nDoorPos := 100;		(* 100 means door open, 0 is closed *)
+	bLiftBottom := TRUE;
+	bLiftTop := FALSE;
+	bDoorIsOpen := TRUE;
+	bDoorIsClosed := FALSE;
+END_IF
+
+(* Limiting Motor speed *)
+IF nMotorVel &gt; 10000 THEN
+	nMotorVel := 10000;
+ELSIF nMotorVel &lt; -10000 THEN
+	nMotorVel := -10000;
+END_IF
+nMotorSpeed := ABS(nMotorVel);
+
+(* Lift behavior *)
+IF nLiftPos = 1200 THEN
+	bLiftTop := TRUE;
+	bLevel3 := TRUE;
+ELSIF nLiftPos = 0 THEN
+	bLiftBottom := TRUE;
+	bLevel0 := TRUE;
+ELSE
+	bLiftTop := FALSE;
+	bLiftBottom := FALSE;
+END_IF
+
+IF NOT bMotorEnable THEN
+	(* Remain position and do noting *)
+ELSE
+	(* Calculate delay, after which the pos should be increased by 10.
+	 Note that delay should be lager the lower nMotorSpeed is.
+	 The calculations here yield a total duration from 0 to maxPos of 
+	approx. 4.8 seconds with 10000 nMotorVel *)
+	IF nMotorSpeed &lt;&gt; 0 THEN
+		tS2T := INT_TO_TIME((12000-nMotorSpeed)/50);
+		tMovingDelay(IN:=TRUE, PT:=tS2T);
+		IF tMovingDelay.Q THEN
+			tMovingDelay(IN:=FALSE);
+			IF nMotorVel &gt; 0 AND nLiftPos &lt; 1200 THEN
+				nLiftPos := nLiftPos + 10; 
+			ELSIF nMotorVel &lt; 0 AND nLiftPos &gt; 0 THEN
+				nLiftPos := nLiftPos - 10;
+			END_IF
+			
+			IF nLiftPos = 0 OR nLiftPos = 60 THEN
+				bLevel0 := TRUE;
+			ELSIF nLiftPos = 340 OR nLiftPos = 400 OR nLiftPos = 460 THEN
+				bLevel1 := TRUE;
+			ELSIF nLiftPos = 730 OR nLiftPos = 800 OR nLiftPos = 860 THEN
+				bLevel2 := TRUE;
+			ELSIF nLiftPos = 1130 OR nLiftPos = 1200 THEN
+				bLevel3 := TRUE;
+			ELSE
+				bLevel0 := FALSE;
+				bLevel1 := FALSE;
+				bLevel2 := FALSE;
+				bLevel3 := FALSE;
+			END_IF
+		END_IF
+	END_IF
+END_IF
+
+
+(* Door dynamics *)
+IF bDoorEnable THEN
+	IF bDoorOpen AND NOT bDoorClose AND nDoorPos &lt; 100 THEN
+		tDoorDelay(IN:=TRUE, PT:=tDoorsOpening);
+		IF tDoorDelay.Q THEN
+			tDoorDelay(IN:=FALSE);
+			nDoorPos := nDoorPos + 10;
+		END_IF
+	ELSIF bDoorClose AND NOT bDoorOpen AND nDoorPos &gt; 0 THEN
+		tDoorDelay(IN:=TRUE, PT:=tDoorsClosing);
+		IF tDoorDelay.Q THEN
+			tDoorDelay(IN:=FALSE);
+			nDoorPos := nDoorPos - 10;
+		END_IF
+	END_IF
+END_IF
+
+(* set door state *)
+IF nDoorPos = 100 THEN
+	bDoorIsOpen := TRUE;
+ELSIF nDoorPos = 0 THEN
+	bDoorIsClosed := TRUE;
+ELSE
+	bDoorIsOpen := FALSE;
+	bDoorIsClosed := FALSE;
+END_IF</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">FUNCTION_BLOCK fb_Aufzug
+VAR_INPUT
+	bMotorEnable 	: BOOL;		(* Deactivate/Activate Motor *)
+	nMotorVel 		: INT;
+	bDoorEnable 	: BOOL;
+	bDoorOpen		: BOOL;
+	bDoorClose		: BOOL;
+END_VAR
+VAR_OUTPUT
+	bLiftTop		: BOOL;
+	bLiftBottom		: BOOL;
+	nLiftPos		: INT(0..1200);
+	bDoorIsOpen		: BOOL;
+	bDoorIsClosed	: BOOL;
+	bLevel0			: BOOL;
+	bLevel1			: BOOL;
+	bLevel2			: BOOL;
+	bLevel3			: BOOL;
+END_VAR
+VAR
+	nMotorSpeed		: INT;
+	nDoorPos		: INT(0..100);
+	bInit			: BOOL := FALSE;
+	tDoorsClosing	: TIME := T#180MS;
+	tDoorsOpening	: TIME := T#220MS;
+	tS2T			: TIME;
+	tDoorDelay		: TON;
+	tMovingDelay	: TON;
+END_VAR
+</xhtml>
+            </InterfaceAsPlainText>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>f4ada7b6-d56d-4a7d-be2e-46e441fb79f0</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="MAIN" pouType="program">
+        <interface>
+          <localVars>
+            <variable name="lift">
+              <type>
+                <derived name="fb_Aufzug" />
+              </type>
+            </variable>
+            <variable name="bMotEn">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="nMotV">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="bDoorEn">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bDoorOp">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bDoorCl">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLTop">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bLBottom">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="nLPos">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="bDOp">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bDCl">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bL0">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bL1">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bL2">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="bL3">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">lift(
+	bMotorEnable:= bMotEn, 
+	nMotorVel:= nMotV, 
+	bDoorEnable:= bDoorEn, 
+	bDoorOpen:= bDoorOp, 
+	bDoorClose:= bDoorCl, 
+	bLiftTop=&gt; bLTop, 
+	bLiftBottom=&gt; bLBottom, 
+	nLiftPos=&gt; nLPos, 
+	bDoorIsOpen=&gt; bDOp, 
+	bDoorIsClosed=&gt; bDCl, 
+	bLevel0=&gt; bL0, 
+	bLevel1=&gt; bL1, 
+	bLevel2=&gt; bL2, 
+	bLevel3=&gt; bL3);</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/interfaceasplaintext" handleUnknown="implementation">
+            <InterfaceAsPlainText>
+              <xhtml xmlns="http://www.w3.org/1999/xhtml">PROGRAM MAIN
+VAR
+	lift: fb_Aufzug;
+	bMotEn : BOOL;
+	nMotV : INT;
+	bDoorEn, bDoorOp, bDoorCl : BOOL;
+	bLTop, bLBottom : BOOL;
+	nLPos : INT;
+	bDOp, bDCl : BOOL;
+	bL0, bL1, bL2, bL3 : BOOL;
+END_VAR
+</xhtml>
+            </InterfaceAsPlainText>
+          </data>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>da766f56-8706-4b29-b973-a7ab0d8e7bad</ObjectId>
+          </data>
+        </addData>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
+      <ProjectStructure>
+        <Object Name="fb_Aufzug" ObjectId="f4ada7b6-d56d-4a7d-be2e-46e441fb79f0" />
+        <Object Name="MAIN" ObjectId="da766f56-8706-4b29-b973-a7ab0d8e7bad" />
+      </ProjectStructure>
+    </data>
+  </addData>
+</project>

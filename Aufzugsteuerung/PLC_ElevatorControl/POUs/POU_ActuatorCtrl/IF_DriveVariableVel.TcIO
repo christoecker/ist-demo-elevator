@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <Itf Name="IF_DriveVariableVel" Id="{f26f961d-e895-426c-987f-bb7572460cb9}">
+    <Declaration><![CDATA[INTERFACE IF_DriveVariableVel
+]]></Declaration>
+    <Property Name="bBOTTOM" Id="{77cb1934-0184-4720-b6b9-4ec73f8015e7}">
+      <Declaration><![CDATA[PROPERTY bBOTTOM : BOOL]]></Declaration>
+      <Get Name="Get" Id="{c5596dfa-854f-4c11-938f-c3b4dec469ef}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Property Name="bTOP" Id="{44738e9d-27ff-4c4c-be13-b184ac41aa3b}">
+      <Declaration><![CDATA[PROPERTY bTOP : BOOL]]></Declaration>
+      <Get Name="Get" Id="{a28a6308-baf2-4f55-b4b6-2fcf2efed39d}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+    </Property>
+    <Method Name="lifEnable" Id="{579038fa-9827-4a68-a04b-faabe1ad189d}">
+      <Declaration><![CDATA[METHOD lifEnable
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="liftDisable" Id="{f77b9e9f-71f5-463a-93a5-9aeb93f830a8}">
+      <Declaration><![CDATA[METHOD liftDisable
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="moveVarSpeed" Id="{ebbb665d-2d75-4d85-ac0e-eada4eb83528}">
+      <Declaration><![CDATA[METHOD moveVarSpeed
+VAR_INPUT
+	nSetVelocity : INT;
+	eDirection : LiftMovingDirection;
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="stop" Id="{d5b4144c-1790-4954-98b7-1986d51e617b}">
+      <Declaration><![CDATA[METHOD stop
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

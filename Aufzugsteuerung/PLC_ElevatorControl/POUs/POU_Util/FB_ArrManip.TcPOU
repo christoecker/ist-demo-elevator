@@ -1,0 +1,289 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_ArrManip" Id="{3caf019d-58bd-4837-9068-c953846ad35b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_ArrManip
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="flip" Id="{a15c0025-8bae-40c2-8706-69ea6e75a6dc}">
+      <Declaration><![CDATA[METHOD flip
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+END_VAR
+VAR
+	i, mid : INT;
+	bfr : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[mid := NUMLEVELS/2;
+FOR i:=1 TO mid DO
+	bfr := arr[i];
+	arr[i] := arr[NUMLEVELS+1-i];
+	arr[NUMLEVELS+1-i] := bfr;
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="index" Id="{5f9aef16-fcb2-419f-b21e-f2b69f686cab}">
+      <Declaration><![CDATA[METHOD index : INT
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF BOOL;
+END_VAR
+VAR
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* 
+Method returns the index of the first element that is TRUE.
+If all Elements are zero, the return value is 0.
+*)
+
+FOR i:=1 TO NUMLEVELS DO
+	IF arr[i] = TRUE THEN
+		index := i;
+		RETURN;
+	END_IF
+END_FOR
+
+index := 0;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="insert" Id="{915327af-0e91-41e0-be8c-81ad65b793fd}">
+      <Declaration><![CDATA[METHOD insert : BOOL
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	newElement : INT;
+	freeElement : INT;
+END_VAR
+VAR 
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i:=1 TO NUMLEVELS DO
+	IF arr[i] = newElement THEN
+		insert := TRUE;
+		RETURN;
+	END_IF
+END_FOR
+
+FOR i:=1 TO NUMLEVELS DO
+	IF arr[i] = freeElement THEN
+		arr[i] := newElement;
+		insert := TRUE;
+		RETURN;
+	END_IF
+END_FOR
+
+insert := FALSE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="isElement" Id="{cf569ec2-295d-4af6-9c82-730bcb265787}">
+      <Declaration><![CDATA[METHOD isElement : BOOL
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	entry : INT;
+END_VAR
+VAR
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i:=1 TO NUMLEVELS DO
+	IF arr[i] = entry THEN
+		isELement := TRUE;
+		RETURN;
+	END_IF
+END_FOR
+isElement := FALSE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="isEmpty" Id="{09f2da74-234d-44c7-a057-7b449b4ef231}">
+      <Declaration><![CDATA[METHOD isEmpty : BOOL
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	emptyElement : INT;
+END_VAR
+VAR
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[FOR i:=1 TO NUMLEVELS DO
+	IF arr[i] <> emptyElement THEN
+		isEmpty := FALSE;
+		RETURN;
+	END_IF
+END_FOR
+isEmpty := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="partition" Id="{d0bc2153-5e93-40d1-8f10-f56185e95095}">
+      <Declaration><![CDATA[METHOD PRIVATE partition : INT
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	lo, hi : INT;
+END_VAR
+VAR
+	pivot : INT;
+	i, j : INT;
+	bfr : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[pivot := arr[hi];
+i := lo;
+
+FOR j:=lo TO hi DO
+	IF arr[j] < pivot THEN
+		bfr := arr[i];
+		arr[i] := arr[j];
+		arr[j] := bfr;
+		i := i+1;
+	END_IF
+END_FOR
+
+bfr := arr[i];
+arr[i] := arr[hi];
+arr[hi] := bfr;
+
+partition := i;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="pop_front" Id="{4e3c8a1b-db7e-40fa-aee8-9e3588f3917f}">
+      <Declaration><![CDATA[METHOD pop_front : INT
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	fill : INT;
+END_VAR
+VAR
+	nOut : INT;
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nOut := arr[1];
+
+FOR i:=1 TO NUMLEVELS-1 DO
+	arr[i] := arr[i+1];
+END_FOR
+arr[NUMLEVELS] := fill;
+
+pop_front := nOut;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="quicksort_asc" Id="{8e7d33b3-d623-4bb0-8e47-176e7e919ed0}">
+      <Declaration><![CDATA[METHOD quicksort_asc
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	lo, hi : INT;
+END_VAR
+VAR
+	p : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF lo < hi THEN
+	p := partition(arr, lo, hi);
+	quicksort_asc(arr, lo, p-1);
+	quicksort_asc(arr, p+1, hi);
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="quicksort_desc" Id="{7c8882d7-643c-4714-8ac1-90c814fe9bcb}">
+      <Declaration><![CDATA[METHOD quicksort_desc
+VAR_INPUT
+	arr : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT;
+	lo, hi : INT;
+END_VAR
+VAR
+	p : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[quicksort_asc(arr:=arr, lo:=lo, hi:=hi);
+flip(arr:=arr);]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_ArrManip">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.flip">
+      <LineId Id="10" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="14" Count="1" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.index">
+      <LineId Id="5" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="20" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.insert">
+      <LineId Id="5" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="18" Count="2" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="21" Count="2" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="25" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.isElement">
+      <LineId Id="5" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="17" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.isEmpty">
+      <LineId Id="12" Count="1" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="19" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.partition">
+      <LineId Id="66" Count="15" />
+      <LineId Id="28" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.pop_front">
+      <LineId Id="28" Count="6" />
+      <LineId Id="17" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.quicksort_asc">
+      <LineId Id="23" Count="3" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ArrManip.quicksort_desc">
+      <LineId Id="5" Count="0" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

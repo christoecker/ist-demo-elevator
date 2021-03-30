@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ElevatorOpMode" Id="{c05c7207-26aa-4317-87f3-ffae9da61be8}">
+    <Declaration><![CDATA[TYPE ElevatorOpMode :
+(
+	waiting_for_calibration := 0,
+	re_init := 1,
+	waiting := 2,
+	moving := 3,
+	doors_opening := 4,
+	waiting_doors_open := 5,
+	doors_closing := 6,
+	prio_waiting := 7,
+	prio_doors_closing := 8,
+	prio_moving := 9,
+	prio_doors_opening := 10
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

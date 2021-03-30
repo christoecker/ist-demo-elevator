@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_DriveSimpleDoor" Id="{6c6f7b46-3a89-4f17-95b1-055e80ffbab5}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_DriveSimpleDoor IMPLEMENTS IF_DriveConstVel
+VAR_INPUT
+	bLimitSwitchOpen, bLimitSwitchClosed : BOOL;		(* Limit switches fpr door open and door closed *)
+END_VAR
+VAR_OUTPUT
+	bDriveEnable, bOpen, bClose : BOOL;					(* Door drive enable, input signals for operning and closing the door *)
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="doorClose" Id="{58f9614e-cc91-4a6f-aaa6-0428fd8245e1}">
+      <Declaration><![CDATA[METHOD doorClose : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Close door *)
+bClose := TRUE;						(* set outputs for door drive, requires bDoorEnable = TRUE *)
+bOpen := FALSE;
+
+doorClose := bLimitSwitchClosed;	(* TRUE if and only if limit switch is TRUE *)]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="doorDisable" Id="{6d0113df-a5ad-449c-8dbc-48fdf8233374}">
+      <Declaration><![CDATA[METHOD doorDisable
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bDriveEnable := FALSE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="doorEnable" Id="{0ae92346-b43f-480f-8e96-8197df7689c8}">
+      <Declaration><![CDATA[METHOD doorEnable
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bDriveEnable := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="doorOpen" Id="{946036e9-b71e-4e43-9072-1dd3d6f022b1}">
+      <Declaration><![CDATA[METHOD doorOpen : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* Open door *)
+bOpen := TRUE;					(* set outputs for door drive, requires bDoorEnable = TRUE *)
+bClose := FALSE;
+
+doorOpen := bLimitSwitchOpen;	(* TRUE if and only if limit switch is TRUE *)]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_DriveSimpleDoor">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveSimpleDoor.doorClose">
+      <LineId Id="13" Count="0" />
+      <LineId Id="8" Count="2" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveSimpleDoor.doorDisable">
+      <LineId Id="4" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveSimpleDoor.doorEnable">
+      <LineId Id="4" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DriveSimpleDoor.doorOpen">
+      <LineId Id="7" Count="3" />
+      <LineId Id="4" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

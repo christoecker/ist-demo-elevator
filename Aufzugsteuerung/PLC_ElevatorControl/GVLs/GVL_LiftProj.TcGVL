@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <GVL Name="GVL_LiftProj" Id="{ad1aec8c-b02c-41c2-8f76-3df11c672c33}">
+    <Declaration><![CDATA[VAR_GLOBAL CONSTANT
+	NUMLEVELS		:INT	:=4;						(* Total number of levels *)
+END_VAR
+
+VAR_GLOBAL
+	(* --- User inputs --- *)
+	bCallLift 		: ARRAY [1 .. NUMLEVELS] OF BOOL;	(* Assigned to buttons OUTSIDE the lift *)
+	bCallLift_Panel : ARRAY [1 .. NUMLEVELS] OF BOOL;	(* Assigned to buttons on the control panel INSIDE the lift *)
+	bOpenDoor		: BOOL;
+	bCloseDoor		: BOOL;
+	
+	bSetPrio		: BOOL;								(* For future use *)
+	
+	(* --- Maintenance variables --- *)
+	bInit			: BOOL;
+	elOpMode 		: ElevatorOpMode;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_QM_Simple" Id="{48533d12-bc5e-4f3b-a37d-0b1460f72dcd}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_QM_Simple IMPLEMENTS IF_queueManager
+VAR_INPUT
+	bButtons 	  : ARRAY [1..NUMLEVELS] OF BOOL;						(* user input *)
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	tPushDetects  : ARRAY [1..NUMLEVELS] OF FB_BinaryInp;				(* FBs to buffer user inputs until being processed *)
+	queueManip	  : FB_ArrManip;										(* FB for array manipulation, like sorting etc. *)
+	k			  : INT;												(* loop variable *)
+	
+	nCurLevel	  : INT(1..NUMLEVELS);									(* current lift position *)
+	nQueue		  : ARRAY [1..NUMLEVELS] OF INT;						(* queue, saving next targets in current moving direction *)
+	bLevelInQueue : ARRAY [1..NUMLEVELS] OF BOOL;						(* buffer of all active calls , i.e. levels in nQueue OR active tPushDetects *)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FOR k:=1 TO NUMLEVELS DO
+	tPushDetects[k](bPush:=bButtons[k], bReset:=FALSE);
+	bLevelInQueue[k] := tPushDetects[k].bOutActive OR queueManip.isElement(arr:=nQueue, entry:=k);
+END_FOR
+
+FOR k:=1 TO NUMLEVELS DO
+	IF tPushDetects[k].bOutActive THEN
+		IF NOT queueManip.isElement(arr:=nQueue, entry:=k) THEN
+			// Inset new element
+			queueManip.insert(arr:=nQueue, newElement:=k, freeElement:=0);
+		END_IF	
+	
+		// Then acknowledge
+		tPushDetects[k](bReset:=TRUE);
+	END_IF
+END_FOR]]></ST>
+    </Implementation>
+    <Property Name="currentLevel" Id="{05b8ddf7-4206-4f55-a2af-17307caea94c}">
+      <Declaration><![CDATA[PROPERTY currentLevel : INT (1..NUMLEVELS)]]></Declaration>
+      <Set Name="Set" Id="{4c6cbf21-05ba-409b-ab68-4544dba8e684}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[nCurLevel := currentLevel;]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Method Name="doneAck" Id="{1917ccf5-84bb-4682-814c-910156dcf3b0}">
+      <Declaration><![CDATA[METHOD doneAck
+VAR_INPUT
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* 
+By calling this method, the first entry in nQueue is deleted and all remaining entries are shiftetd one position forward. 
+Method shall be called, after the latest moving job has been executed. 
+*)
+queueManip.pop_front(arr:=nQueue, fill:=0);]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="queue" Id="{ff04d85a-00eb-4b9f-921f-cfd9edbf70a4}">
+      <Declaration><![CDATA[PROPERTY queue : REFERENCE TO ARRAY [1..NUMLEVELS] OF INT]]></Declaration>
+      <Get Name="Get" Id="{f1999e36-4522-4088-9557-86f50cf1d9d6}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[queue REF= nQueue;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="reset" Id="{ba8a2664-ac75-41c1-9a13-267ab6d3bdc0}">
+      <Declaration><![CDATA[METHOD reset
+VAR_INPUT
+END_VAR
+VAR
+	i : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(* resets all calls *)
+FOR i:=1 TO NUMLEVELS DO
+	nQueue[i] := 0;
+	tPushDetects[i](bReset:=TRUE);
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_QM_Simple">
+      <LineId Id="145" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="146" Count="0" />
+      <LineId Id="150" Count="0" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="155" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="201" Count="0" />
+      <LineId Id="204" Count="0" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="194" Count="0" />
+      <LineId Id="267" Count="1" />
+      <LineId Id="158" Count="0" />
+      <LineId Id="156" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_Simple.currentLevel.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_Simple.doneAck">
+      <LineId Id="11" Count="3" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_Simple.queue.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_QM_Simple.reset">
+      <LineId Id="18" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="10" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

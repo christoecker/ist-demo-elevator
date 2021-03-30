@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_BinaryInp" Id="{7c991cde-f35e-49c7-832a-d3659d6f05da}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_BinaryInp
+VAR_INPUT
+	bPush : BOOL;
+	bReset : BOOL;
+END_VAR
+VAR_OUTPUT
+	bOutActive : BOOL;
+END_VAR
+VAR
+	rsHold : RS;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[rsHold(SET:=bPush, RESET1:=bReset, Q1=>bOutActive);]]></ST>
+    </Implementation>
+    <LineIds Name="FB_BinaryInp">
+      <LineId Id="15" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

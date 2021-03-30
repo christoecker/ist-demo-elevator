@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_move2Level" Id="{a13e1af2-7dc3-4018-b74f-1042295ef03d}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_move2Level
+VAR_INPUT
+	winchCtrl : REFERENCE TO IF_DriveVariableVel;		(* function block for controlling winch drive *)
+	bProxSensor : ARRAY [1..NUMLEVELS] OF BOOL;			(* Proximity sensors for level L0 .. L_NUMLEVELS *)
+	bStart : BOOL;										(* Signal to start moving *)
+	
+	nCurrentLevel : INT(1..NUMLEVELS);					(* current lift position *)
+	nNextLevel : INT(1..NUMLEVELS);						(* setpoint of next target -> first entry of queue *)
+END_VAR
+VAR_OUTPUT
+	bJobDone : BOOL := FALSE;							(* feedback when target is reached: signal is TRUE for one cycle *)
+END_VAR
+VAR
+	eDirection : LiftMovingDirection;					(* local variable for lift moving direction *)
+	
+	nState : INT := 0;									(* state variable for sequential control *)
+	nCnt : INT;											(* loop variable *)
+	
+	tLevelDetection : R_TRIG;							(* trigger used fpr proximity sensors *)
+	tStartDetection : R_TRIG;							(* trigger for detecting start signal *)
+END_VAR
+VAR CONSTANT
+	nVelFast : INT := 5000;								(* setpoints for fast and slow moving *)
+	nVelSlow : INT := 10;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[tStartDetection(CLK:=bStart);
+
+CASE nState OF
+	0:	// idle -> lift is waiting for start signal
+		bJobDone := FALSE;
+		IF tStartDetection.Q THEN
+			nState := 1;								(* start next job *)
+		END_IF
+		
+	1: 	// set direction
+		bJobDone := FALSE;
+		IF nNextLevel < nCurrentLevel THEN				(* move down to get to next level *)
+			eDirection := LiftMovingDirection.down;
+			nState := 2;
+		END_IF
+		IF nNextLevel > nCurrentLevel THEN				(* move up to get to next level *)
+			eDirection := LiftMovingDirection.up;
+			nState := 2;
+		END_IF
+		IF nNextLevel = nCurrentLevel THEN				(* lift is already in right position *)
+			bJobDone := TRUE;
+			nState := 0;
+		END_IF
+		
+	2:	// move up/down slowly - START
+		winchCtrl.moveVarSpeed(nSetVelocity:=nVelSlow, eDirection:=eDirection);
+		tLevelDetection(CLK:=bProxSensor[nCurrentLevel]);
+		IF tLevelDetection.Q THEN
+			nState := 3;
+		END_IF
+		
+	3: 	// move up/down fast
+		winchCtrl.moveVarSpeed(nSetVelocity:=nVelFast, eDirection:=eDirection);
+		tLevelDetection(CLK:=bProxSensor[nNextLevel]);
+		IF tLevelDetection.Q THEN
+			nState := 4;
+		END_IF
+		
+	4:	// move up/down slowly - END
+		winchCtrl.moveVarSpeed(nSetVelocity:=nVelSlow, eDirection:=eDirection);
+		tLevelDetection(CLK:=bProxSensor[nNextLevel]);
+		IF tLevelDetection.Q THEN
+			winchCtrl.stop();
+			bJobDOne := TRUE;
+			nState := 0;									(* moving job completed: go back to idle state *)
+		END_IF
+		
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FB_move2Level">
+      <LineId Id="10" Count="4" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="84" Count="2" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="16" Count="7" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="209" Count="0" />
+      <LineId Id="116" Count="1" />
+      <LineId Id="24" Count="1" />
+      <LineId Id="27" Count="17" />
+      <LineId Id="179" Count="0" />
+      <LineId Id="52" Count="1" />
+      <LineId Id="144" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

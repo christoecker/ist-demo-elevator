@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="LiftMovingDirection" Id="{7b713074-de30-4e6c-bcf4-9a0ca4d355f8}">
+    <Declaration><![CDATA[TYPE LiftMovingDirection :
+(
+	down := -1,
+	up := 1
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

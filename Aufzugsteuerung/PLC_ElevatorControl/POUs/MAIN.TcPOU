@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="MAIN" Id="{da766f56-8706-4b29-b973-a7ab0d8e7bad}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+	// actuator control
+	smplDoorCtrl		: FB_DriveSimpleDoor;
+	winchCtrl 			: FB_DriveWinch;
+	
+	// simulation
+	liftSim				: fb_Aufzug;
+	
+	// Elevator Controller (main controller)
+	// queueLogic			: FB_QM_MinDirChanges;		// sophisticated logic
+	queueLogic 			: FB_QM_Simple;				// simple logic
+	elevatorCtrl		: FB_ElevatorCtrl;
+	
+	// processed signals
+	bMergedCallBtns 	: ARRAY[1..NUMLEVELS] OF BOOL;
+
+	// utils
+	i : INT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FOR i:=1 TO NUMLEVELS DO
+	IF NOT bSetPrio THEN
+		bMergedCallBtns[i] := bCallLift[i] OR bCallLift_Panel[i];
+	ELSE
+		bMergedCallBtns[i] := bCallLift[i];
+	END_IF
+END_FOR
+
+liftSim(
+	bMotorEnable:=winchCtrl.bDriveEnable, 
+	nMotorVel:=winchCtrl.nDriveVelocity, 
+	bDoorEnable:=smplDoorCtrl.bDriveEnable, 
+	bDoorOpen:=smplDoorCtrl.bOpen, 
+	bDoorClose:=smplDoorCtrl.bClose, 
+	bLiftTop=>winchCtrl.bLimitTop, 
+	bLiftBottom=>winchCtrl.bLimitBottom, 
+	nLiftPos=> , 
+	bDoorIsOpen=>smplDoorCtrl.bLimitSwitchOpen, 
+	bDoorIsClosed=>smplDoorCtrl.bLimitSwitchClosed, 
+	bLevel0=>elevatorCtrl.bProxSensors[1], 
+	bLevel1=>elevatorCtrl.bProxSensors[2], 
+	bLevel2=>elevatorCtrl.bProxSensors[3], 
+	bLevel3=>elevatorCtrl.bProxSensors[4]);
+	
+queueLogic(
+	bButtons:=bMergedCallBtns
+);
+
+elevatorCtrl(
+	doorController:=smplDoorCtrl,
+	liftController:=winchCtrl,
+	queueMngr:=queueLogic,
+	bInit_Reinit:=bInit
+);
+]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="178" Count="0" />
+      <LineId Id="278" Count="0" />
+      <LineId Id="276" Count="0" />
+      <LineId Id="279" Count="2" />
+      <LineId Id="180" Count="0" />
+      <LineId Id="190" Count="15" />
+      <LineId Id="248" Count="0" />
+      <LineId Id="250" Count="2" />
+      <LineId Id="212" Count="1" />
+      <LineId Id="223" Count="2" />
+      <LineId Id="227" Count="0" />
+      <LineId Id="226" Count="0" />
+      <LineId Id="150" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
